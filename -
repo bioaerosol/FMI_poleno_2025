@@ -1,0 +1,419 @@
+[31m# no-brain cut from recognition scripts[m
+
+[01;34mimport[m time[31m,[m os[31m,[m shutil[31m,[m io[31m,[m glob[31m,[m csv[31m,[m json[31m,[m gzip
+[01;34mfrom[m datetime [01;34mimport[m datetime
+[01;34mfrom[m dateutil [01;34mimport[m tz
+[01;34mimport[m pytz
+[01;34mfrom[m zipfile [01;34mimport[m ZipFile
+[01;34mfrom[m PIL [01;34mimport[m Image
+[01;34mimport[m numpy as np
+[01;34mimport[m PolenoRecognitionConfigs as PRC
+[01;34mimport[m PolenoAdditionalConfigs as PAC
+[01;34mimport[m pandas as pd
+[01;34mimport[m sys
+stderr [31m=[m sys[31m.[mstderr
+sys[31m.[mstderr [31m=[m [01;30mopen[m[31m([mos[31m.[mdevnull[31m,[m [31m'w'[m[31m)[m
+[01;34mfrom[m keras[31m.[mmodels [01;34mimport[m load_model
+sys[31m.[mstderr [31m=[m stderr
+
+os[31m.[menviron[31m[[m[31m'TF_CPP_MIN_LOG_LEVEL'[m[31m][m [31m=[m [31m'2'[m
+
+t [31m=[m time[31m.[m[01;30mtime[m[31m()[m
+
+[31m# message[m
+[01;34mdef[m [01;30mprocessing_msg[m[31m([miter[31m,[mjson_iter[31m,[mzip_date_iter[31m):[m
+    [01;34mprint[m[31m([m[31m'Processing'[m[31m,[m iter[31m+[m[35m1[m[31m,[m [31m'of'[m[31m,[m [01;30mlen[m[31m([mjson_iter[31m),[m [31m'events for'[m[31m,[m os[31m.[mpath[31m.[m[01;30mbasename[m[31m([mzip_date_iter[31m),[m end[31m=[m[31m""[m[31m,[m flush[31m=[mTrue[31m)[m
+
+[31m# JSON Validation[m
+[31m## collect all Keys in Json[m
+[01;34mdef[m [01;30mgetKeys[m[31m([mjson[31m):[m
+    keys [31m=[m [31m[][m
+    [01;34mfor[m k [01;34min[m json[31m.[m[01;30mkeys[m[31m():[m
+        keys[31m.[m[01;30mappend[m[31m([mk[31m)[m
+        [01;34mif[m [01;30mtype[m[31m([mjson[31m[[mk[31m])[m [31m==[m dict[31m:[m
+            k [31m=[m [01;30mgetKeys[m[31m([mjson[31m[[mk[31m])[m
+            keys[31m.[m[01;30mextend[m[31m([mk[31m)[m
+    [01;34mreturn[m keys
+
+[31m## check if all default keys in sample keys[m
+[01;34mdef[m [01;30mcheckKeys[m[31m([msample[31m,[m default[31m):[m
+    sample [31m=[m [01;30mgetKeys[m[31m([msample[31m)[m
+    default [31m=[m [01;30mgetKeys[m[31m([mdefault[31m)[m
+    valid [31m=[m True
+    [01;34mfor[m k [01;34min[m default[31m:[m
+        [01;34mif[m [01;34mnot[m k [01;34min[m sample[31m:[m valid [31m=[m False
+    [01;34mreturn[m valid
+
+[31m## validate json[m
+[01;34mdef[m [01;30mjsonValidation[m[31m([mjson[31m,[m json_default[31m):[m
+    valid [31m=[m [01;30mcheckKeys[m[31m([mjson[31m,[m json_default[31m)[m
+    [01;34mreturn[m valid
+
+[31m# Holo image validation[m
+[01;34mdef[m [01;30mimgValidation[m[31m([mjson[31m):[m
+    [01;34mtry[m[31m:[m
+        sol [31m=[m np[31m.[m[01;30marray[m[31m([[mjson[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'solidity'[m[31m],[m
+                        json[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'solidity'[m[31m]])[m
+        area [31m=[m np[31m.[m[01;30marray[m[31m([[mjson[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'area'[m[31m],[m
+                         json[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'area'[m[31m]])[m
+        minorAxis [31m=[m np[31m.[m[01;30marray[m[31m([[mjson[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'minor_axis_length'[m[31m],[m
+                              json[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'minor_axis_length'[m[31m]])[m
+        majorAxis [31m=[m np[31m.[m[01;30marray[m[31m([[mjson[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'major_axis_length'[m[31m],[m
+                              json[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'major_axis_length'[m[31m]])[m
+        perimeter [31m=[m np[31m.[m[01;30marray[m[31m([[mjson[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'perimeter'[m[31m],[m
+                              json[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'perimeter'[m[31m]])[m
+        maxIntensity [31m=[m np[31m.[m[01;30marray[m[31m([[mjson[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'max_intensity'[m[31m],[m
+                                 json[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'max_intensity'[m[31m]])[m
+        minIntensity [31m=[m np[31m.[m[01;30marray[m[31m([[mjson[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'min_intensity'[m[31m],[m
+                                 json[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'min_intensity'[m[31m]])[m
+        meanIntensity [31m=[m np[31m.[m[01;30marray[m[31m([[mjson[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'mean_intensity'[m[31m],[m
+                                  json[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'mean_intensity'[m[31m]])[m
+        eccentricity [31m=[m np[31m.[m[01;30marray[m[31m([[mjson[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'eccentricity'[m[31m],[m
+                                 json[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'eccentricity'[m[31m]])[m
+        [01;34mreturn[m True
+    [01;34mexcept[m[31m:[m
+        [01;34mreturn[m False
+    [01;34mreturn[m True
+
+[31m### Start[m
+
+zip_date [31m=[m sys[31m.[margv[31m[[m[35m3[m[31m][m
+json_names [31m=[m [31m[[ms [01;34mfor[m s [01;34min[m os[31m.[m[01;30mlistdir[m[31m([msys[31m.[margv[31m[[m[35m1[m[31m])[m [01;34mif[m [31m'ev.json'[m [01;34min[m s[31m][m
+
+threshold [31m=[m [35m0.70[m                [31m# if set below 0.5 the event might get counted 2+ times[m
+classes [31m=[m np[31m.[m[01;30mzeros[m[31m([m[35m21[m[31m)[m          [31m# adjust for number of classes[m
+size_classes [31m=[m np[31m.[m[01;30mzeros[m[31m([m[35m15[m[31m)[m     [31m# adjust for number of classes[m
+unrecognised [31m=[m np[31m.[m[01;30mzeros[m[31m([m[35m1[m[31m)[m      [31m# number of unrecognised events[m
+
+bins [31m=[m [31m[[m[35m4[m[31m,[m[35m5[m[31m,[m[35m6[m[31m,[m[35m7[m[31m,[m[35m8[m[31m,[m[35m9[m[31m,[m[35m10[m[31m,[m[35m11[m[31m,[m[35m12[m[31m,[m[35m14[m[31m,[m[35m16[m[31m,[m[35m18[m[31m,[m[35m20[m[31m,[m[35m25[m[31m,[m[35m30[m[31m,[m[35m60[m[31m][m
+
+sol_min [31m=[m [35m0.9[m
+sol_max [31m=[m [35m1.1[m
+
+df_stats [31m=[m pd[31m.[m[01;30mDataFrame[m[31m([m
+    columns[31m=[[m[31m'total_cnt'[m[31m,[m [31m'valid_cnt'[m[31m,[m [31m'json_failCnt'[m[31m,[m [31m'holo_failCnt'[m[31m,[m [31m'imgProp_failCnt'[m[31m,[m [31m'imgProp_exceptionCnt'[m[31m,[m [31m'trig_failCnt'[m[31m,[m
+             [31m'others_failCnt'[m[31m],[m index[31m=[[m[35m0[m[31m])[m
+df_stats[31m.[miloc[31m[[m[35m0[m[31m][m [31m=[m np[31m.[m[01;30mzeros[m[31m([m[01;30mlen[m[31m([mdf_stats[31m.[mcolumns[31m))[m
+
+[31m# print('Loading model')[m
+model_name [31m=[m [31m'model_2025_v0_3.h5'[m
+model [31m=[m [01;30mload_model[m[31m([mmodel_name[31m)[m
+[01;34mprint[m[31m([m[31m'Processing measurements'[m[31m)[m
+ 
+[31m# All_areas = np.zeros(len(json_names))[m
+
+[01;34mfor[m i [01;34min[m [01;30mrange[m[31m([m[01;30mlen[m[31m([mjson_names[31m)):[m
+
+    curent_event_size_classes [31m=[m np[31m.[m[01;30mzeros[m[31m([m[35m15[m[31m)[m
+
+    [31m# processing_msg(i,json_names,zip_date)[m
+    [31m# print()[m
+
+    json_path_name [31m=[m sys[31m.[margv[31m[[m[35m1[m[31m][m [31m+[m [31m'/'[m [31m+[m json_names[31m[[mi[31m][m
+    json_name [31m=[m os[31m.[mpath[31m.[m[01;30mbasename[m[31m([mjson_path_name[31m)[m
+
+    [31m# with ZipFile(zip_date) as z:[m
+    [31m#     zf = z.read(json_path_name)[m
+    [31m#     json_data = json.loads(zf.decode("utf-8"))[m
+
+    df_stats[31m[[m[31m'total_cnt'[m[31m][m [31m+=[m [35m1[m
+    valid [31m=[m True
+
+    [01;34mif[m [01;34mnot[m os[31m.[m[01;30mstat[m[31m([mjson_path_name[31m).[mst_size[31m>[m[35m0[m[31m:[m
+        df_stats[31m[[m[31m'others_failCnt'[m[31m][m [31m+=[m [35m1[m
+        [31m#print(json_name, '<-- json size is zero')[m
+        [01;34mcontinue[m
+
+    with [01;30mopen[m[31m([mjson_path_name[31m)[m as j[31m:[m
+        json_data [31m=[m json[31m.[m[01;30mloads[m[31m([mj[31m.[m[01;30mread[m[31m())[m
+    
+    valid [31m=[m valid [01;34mand[m [01;30mjsonValidation[m[31m([mjson_data[31m,[m PRC[31m.[mjson_default[31m)[m
+    [01;34mif[m [01;34mnot[m valid[31m:[m
+        df_stats[31m[[m[31m'json_failCnt'[m[31m][m [31m+=[m [35m1[m
+        [31m#print(json_name, '<-- json is invalid')[m
+        [31m# print('; json is invalid:',json_name)[m
+        [01;34mcontinue[m
+
+    [01;34mif[m PRC[31m.[mwrite_imgProperties[31m:[m
+        valid [31m=[m valid [01;34mand[m [01;30mimgValidation[m[31m([mjson_data[31m)[m
+        [01;34mif[m [01;34mnot[m valid[31m:[m
+            df_stats[31m[[m[31m'imgProp_failCnt'[m[31m][m [31m+=[m [35m1[m
+            [31m#print(json_name, '<-- images are invalid')[m
+            [31m# print('; images are invalid:',json_name)[m
+            [01;34mcontinue[m
+
+    event_name [31m=[m sys[31m.[margv[31m[[m[35m1[m[31m][m [31m+[m [31m'/'[m [31m+[m json_names[31m[[mi[31m][m
+
+
+    cam1 [31m=[m event_name[31m[:-[m[35m7[m[31m][m [31m+[m [31m'ev.computed_data.holography.image_pairs.0.0.rec_mag.png'[m
+    cam2 [31m=[m event_name[31m[:-[m[35m7[m[31m][m [31m+[m [31m'ev.computed_data.holography.image_pairs.0.1.rec_mag.png'[m
+
+    [31m#print(cam1)[m
+
+    [31m# if ((cam1 not in rcg_zip.namelist()) or (cam2 not in rcg_zip.namelist())):[m
+    [01;34mif[m [31m([m[01;34mnot[m os[31m.[mpath[31m.[m[01;30misfile[m[31m([mcam1[31m))[m [01;34mor[m [31m([m[01;34mnot[m os[31m.[mpath[31m.[m[01;30misfile[m[31m([mcam2[31m)):[m
+        valid [31m=[m [01;34mnot[m valid
+        df_stats[31m[[m[31m'imgProp_failCnt'[m[31m][m [31m+=[m [35m1[m
+        [31m# print('; no images:',json_name)[m
+
+    [01;34mif[m valid[31m:[m
+        [31m#print(json_name, '<-- event is valid')[m
+        
+        img1 [31m=[m Image[31m.[m[01;30mopen[m[31m([mcam1[31m)[m
+        img2 [31m=[m Image[31m.[m[01;30mopen[m[31m([mcam2[31m)[m
+
+        [01;34mtry[m[31m:[m
+            [01;34mif[m img1[31m.[mmode [01;34min[m [31m[[m[31m'L'[m[31m,[m [31m'P'[m[31m]:[m img1[31m,[m img2 [31m=[m np[31m.[m[01;30marray[m[31m([mimg1[31m)[m [31m/[m [31m([m[35m2[m[31m**[m[35m8[m[31m),[m np[31m.[m[01;30marray[m[31m([mimg2[31m)/[m [31m([m[35m2[m[31m**[m[35m8[m[31m)[m
+            [01;34mif[m img1[31m.[mmode [01;34min[m [31m[[m[31m'I'[m[31m,[m [31m'F'[m[31m,[m [31m'I;16'[m[31m,[m [31m'I;16B'[m[31m,[m [31m'I;16L'[m[31m,[m [31m'I;16S'[m[31m,[m [31m'I;16BS'[m[31m,[m [31m'I;16LS'[m[31m]:[m img1[31m,[m img2 [31m=[m np[31m.[m[01;30marray[m[31m([mimg1[31m)[m [31m/[m [31m([m[35m2[m[31m**[m[35m16[m[31m),[m np[31m.[m[01;30marray[m[31m([mimg2[31m)/[m [31m([m[35m2[m[31m**[m[35m16[m[31m)[m
+
+            image1 [31m=[m np[31m.[m[01;30mexpand_dims[m[31m([mimg1[31m,[m [31m-[m[35m1[m[31m)[m
+            image2 [31m=[m np[31m.[m[01;30mexpand_dims[m[31m([mimg2[31m,[m [31m-[m[35m1[m[31m)[m
+            image1 [31m=[m np[31m.[m[01;30mexpand_dims[m[31m([mimage1[31m,[m [35m0[m[31m)[m
+            image2 [31m=[m np[31m.[m[01;30mexpand_dims[m[31m([mimage2[31m,[m [35m0[m[31m)[m
+
+            [01;34mtry[m[31m:[m
+                result [31m=[m model[31m.[m[01;30mpredict[m[31m([[mimage1[31m,[m image2[31m])[m
+            [01;34mexcept[m[31m:[m
+                df_stats[31m[[m[31m'imgProp_exceptionCnt'[m[31m][m [31m+=[m [35m1[m
+                [01;34mcontinue[m
+
+            result [31m=[m model[31m.[m[01;30mpredict[m[31m([[mimage1[31m,[m image2[31m])[m
+            result [31m=[m result[31m.[m[01;30mtranspose[m[31m()[m
+
+            df_stats[31m[[m[31m'valid_cnt'[m[31m][m [31m+=[m [35m1[m
+
+            [31m# print(result)[m
+
+            recognition [31m=[m [31m[[mr [31m>=[m threshold [01;34mfor[m r [01;34min[m result[31m][m
+            recognition [31m=[m [31m[[m[01;30mint[m[31m([melem[31m)[m [01;34mfor[m elem [01;34min[m recognition[31m][m
+            recognition [31m=[m np[31m.[m[01;30masarray[m[31m([mrecognition[31m)[m
+
+            [31m# print('; Recognition:', recognition, end="", flush=True)[m
+            
+            [31m### SHOULD BE REWRITEN ###[m
+
+            sol [31m=[m np[31m.[m[01;30marray[m[31m([[mjson_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'solidity'[m[31m],[m
+                            json_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'solidity'[m[31m]])[m
+            area [31m=[m np[31m.[m[01;30marray[m[31m([[mjson_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'area'[m[31m],[m
+                             json_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'area'[m[31m]])[m
+            minorAxis [31m=[m np[31m.[m[01;30marray[m[31m([[mjson_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'minor_axis_length'[m[31m],[m
+                                  json_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'minor_axis_length'[m[31m]])[m
+            majorAxis [31m=[m np[31m.[m[01;30marray[m[31m([[mjson_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'major_axis_length'[m[31m],[m
+                                  json_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'major_axis_length'[m[31m]])[m
+            perimeter [31m=[m np[31m.[m[01;30marray[m[31m([[mjson_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'perimeter'[m[31m],[m
+                                  json_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'perimeter'[m[31m]])[m
+            maxIntensity [31m=[m np[31m.[m[01;30marray[m[31m([[mjson_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'max_intensity'[m[31m],[m
+                                     json_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'max_intensity'[m[31m]])[m
+            minIntensity [31m=[m np[31m.[m[01;30marray[m[31m([[mjson_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'min_intensity'[m[31m],[m
+                                     json_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'min_intensity'[m[31m]])[m
+            meanIntensity [31m=[m np[31m.[m[01;30marray[m[31m([[mjson_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'mean_intensity'[m[31m],[m
+                                      json_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'mean_intensity'[m[31m]])[m
+            eccentricity [31m=[m np[31m.[m[01;30marray[m[31m([[mjson_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m0[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'eccentricity'[m[31m],[m
+                                     json_data[31m[[m[31m'computed_data'[m[31m][[m[31m'holography'[m[31m][[m[31m'image_pairs'[m[31m][[m[35m0[m[31m][[m[35m1[m[31m][[m[31m'rec_mag_properties'[m[31m][[m[31m'eccentricity'[m[31m]])[m
+
+            [01;34mif[m recognition[31m[[m[35m0[m[31m][m [31m==[m [35m1[m[31m:[m  [31m# alnus[m
+                [01;34mif[m [31m([msol [31m<=[m sol_min[31m*[mPAC[31m.[malnus_sol_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([msol [31m>[m sol_max[31m*[mPAC[31m.[malnus_sol_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m<=[m PAC[31m.[malnus_area_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m>[m PAC[31m.[malnus_area_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m<=[m PAC[31m.[malnus_minorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m>[m PAC[31m.[malnus_minorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m<=[m PAC[31m.[malnus_majorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m>[m PAC[31m.[malnus_majorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m<=[m PAC[31m.[malnus_perimeter_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m>[m PAC[31m.[malnus_perimeter_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m<=[m PAC[31m.[malnus_maxIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m>[m PAC[31m.[malnus_maxIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[malnus_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[malnus_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[malnus_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[malnus_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m<=[m PAC[31m.[malnus_meanIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m>[m PAC[31m.[malnus_meanIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m<=[m PAC[31m.[malnus_eccentricity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m>[m PAC[31m.[malnus_eccentricity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m():[m
+                    recognition[31m[[m[35m0[m[31m][m [31m=[m [35m0[m  [31m# not alnus[m
+                    unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+                    [31m# print('', json_name, 'does not pass additional filter', end="", flush=True)[m
+
+            [01;34mif[m recognition[31m[[m[35m1[m[31m][m [31m==[m [35m1[m[31m:[m  [31m# artemisia[m
+                [01;34mif[m [31m([msol [31m<=[m sol_min[31m*[mPAC[31m.[martemisia_sol_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([msol [31m>[m sol_max[31m*[mPAC[31m.[martemisia_sol_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m<=[m PAC[31m.[martemisia_area_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m>[m PAC[31m.[martemisia_area_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m<=[m PAC[31m.[martemisia_minorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m>[m PAC[31m.[martemisia_minorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m<=[m PAC[31m.[martemisia_majorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m>[m PAC[31m.[martemisia_majorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m<=[m PAC[31m.[martemisia_perimeter_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m>[m PAC[31m.[martemisia_perimeter_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m<=[m PAC[31m.[martemisia_maxIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m>[m PAC[31m.[martemisia_maxIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[martemisia_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[martemisia_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[martemisia_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[martemisia_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m<=[m PAC[31m.[martemisia_meanIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m>[m PAC[31m.[martemisia_meanIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m<=[m PAC[31m.[martemisia_eccentricity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m>[m PAC[31m.[martemisia_eccentricity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m():[m
+                    recognition[31m[[m[35m1[m[31m][m [31m=[m [35m0[m  [31m# not artemisia[m
+                    unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+                    [31m# print('', json_name, 'does not pass additional filter', end="", flush=True)[m
+
+            [01;34mif[m recognition[31m[[m[35m2[m[31m][m [31m==[m [35m1[m[31m:[m  [31m# betula[m
+                [01;34mif[m [31m([msol [31m<=[m sol_min[31m*[mPAC[31m.[mbetula_sol_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([msol [31m>[m sol_max[31m*[mPAC[31m.[mbetula_sol_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m<=[m PAC[31m.[mbetula_area_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m>[m PAC[31m.[mbetula_area_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m<=[m PAC[31m.[mbetula_minorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m>[m PAC[31m.[mbetula_minorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m<=[m PAC[31m.[mbetula_majorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m>[m PAC[31m.[mbetula_majorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m<=[m PAC[31m.[mbetula_perimeter_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m>[m PAC[31m.[mbetula_perimeter_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m<=[m PAC[31m.[mbetula_maxIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m>[m PAC[31m.[mbetula_maxIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mbetula_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mbetula_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mbetula_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mbetula_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m<=[m PAC[31m.[mbetula_meanIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m>[m PAC[31m.[mbetula_meanIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m<=[m PAC[31m.[mbetula_eccentricity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m>[m PAC[31m.[mbetula_eccentricity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m():[m
+                    recognition[31m[[m[35m2[m[31m][m [31m=[m [35m0[m  [31m# not betula[m
+                    unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+                    [31m# print('', json_name, 'does not pass additional filter', end="", flush=True)[m
+
+            [01;34mif[m recognition[31m[[m[35m4[m[31m][m [31m==[m [35m1[m[31m:[m  [31m# corylus[m
+                [01;34mif[m [31m([msol [31m<=[m sol_min[31m*[mPAC[31m.[mcorylus_sol_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([msol [31m>[m sol_max[31m*[mPAC[31m.[mcorylus_sol_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m<=[m PAC[31m.[mcorylus_area_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m>[m PAC[31m.[mcorylus_area_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m<=[m PAC[31m.[mcorylus_minorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m>[m PAC[31m.[mcorylus_minorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m<=[m PAC[31m.[mcorylus_majorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m>[m PAC[31m.[mcorylus_majorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m<=[m PAC[31m.[mcorylus_perimeter_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m>[m PAC[31m.[mcorylus_perimeter_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m<=[m PAC[31m.[mcorylus_maxIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m>[m PAC[31m.[mcorylus_maxIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mcorylus_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mcorylus_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mcorylus_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mcorylus_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m<=[m PAC[31m.[mcorylus_meanIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m>[m PAC[31m.[mcorylus_meanIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m<=[m PAC[31m.[mcorylus_eccentricity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m>[m PAC[31m.[mcorylus_eccentricity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m():[m
+                    recognition[31m[[m[35m3[m[31m][m [31m=[m [35m0[m  [31m# not corylus[m
+                    unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+                    [31m# print('', json_name, 'does not pass additional filter', end="", flush=True)[m
+
+            [01;34mif[m recognition[31m[[m[35m7[m[31m][m [31m==[m [35m1[m[31m:[m  [31m# fraxinus[m
+                [01;34mif[m [31m([msol [31m<=[m sol_min[31m*[mPAC[31m.[mfraxinus_sol_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([msol [31m>[m sol_max[31m*[mPAC[31m.[mfraxinus_sol_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m<=[m PAC[31m.[mfraxinus_area_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m>[m PAC[31m.[mfraxinus_area_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m<=[m PAC[31m.[mfraxinus_minorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m>[m PAC[31m.[mfraxinus_minorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m<=[m PAC[31m.[mfraxinus_majorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m>[m PAC[31m.[mfraxinus_majorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m<=[m PAC[31m.[mfraxinus_perimeter_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m>[m PAC[31m.[mfraxinus_perimeter_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m<=[m PAC[31m.[mfraxinus_maxIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m>[m PAC[31m.[mfraxinus_maxIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mfraxinus_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mfraxinus_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mfraxinus_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mfraxinus_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m<=[m PAC[31m.[mfraxinus_meanIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m>[m PAC[31m.[mfraxinus_meanIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m<=[m PAC[31m.[mfraxinus_eccentricity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m>[m PAC[31m.[mfraxinus_eccentricity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m():[m
+                    recognition[31m[[m[35m4[m[31m][m [31m=[m [35m0[m  [31m# not fraxinus[m
+                    unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+                    [31m# print('', json_name, 'does not pass additional filter', end="", flush=True)[m
+
+            [31m# if recognition[5] == 1:  # picea[m
+                [31m### TO ADD ###[m
+
+            [01;34mif[m recognition[31m[[m[35m11[m[31m][m [31m==[m [35m1[m[31m:[m  [31m# pinus[m
+                [01;34mif[m [31m([msol [31m<=[m sol_min[31m*[mPAC[31m.[mpinus_sol_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([msol [31m>[m sol_max[31m*[mPAC[31m.[mpinus_sol_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m<=[m PAC[31m.[mpinus_area_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m>[m PAC[31m.[mpinus_area_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m<=[m PAC[31m.[mpinus_minorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m>[m PAC[31m.[mpinus_minorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m<=[m PAC[31m.[mpinus_majorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m>[m PAC[31m.[mpinus_majorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m<=[m PAC[31m.[mpinus_perimeter_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m>[m PAC[31m.[mpinus_perimeter_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m<=[m PAC[31m.[mpinus_maxIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m>[m PAC[31m.[mpinus_maxIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mpinus_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mpinus_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mpinus_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mpinus_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m<=[m PAC[31m.[mpinus_meanIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m>[m PAC[31m.[mpinus_meanIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m<=[m PAC[31m.[mpinus_eccentricity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m>[m PAC[31m.[mpinus_eccentricity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m():[m
+                    recognition[31m[[m[35m6[m[31m][m [31m=[m [35m0[m  [31m# not pinus[m
+                    unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+                    [31m# print('', json_name, 'does not pass additional filter', end="", flush=True)[m
+
+            [01;34mif[m recognition[31m[[m[35m14[m[31m][m [31m==[m [35m1[m[31m:[m  [31m# populus[m
+                [31m# ratio1 = json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][2] / \[m
+                [31m#          json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][5][m
+                [31m# ratio2 = json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][3] / \[m
+                [31m#          json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][5][m
+                [01;34mif[m [31m([msol [31m<=[m sol_min[31m*[mPAC[31m.[mpopulus_sol_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([msol [31m>[m sol_max[31m*[mPAC[31m.[mpopulus_sol_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m<=[m PAC[31m.[mpopulus_area_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m>[m PAC[31m.[mpopulus_area_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m<=[m PAC[31m.[mpopulus_minorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m>[m PAC[31m.[mpopulus_minorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m<=[m PAC[31m.[mpopulus_majorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m>[m PAC[31m.[mpopulus_majorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m<=[m PAC[31m.[mpopulus_perimeter_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m>[m PAC[31m.[mpopulus_perimeter_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m<=[m PAC[31m.[mpopulus_maxIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m>[m PAC[31m.[mpopulus_maxIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mpopulus_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mpopulus_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mpopulus_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mpopulus_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m<=[m PAC[31m.[mpopulus_meanIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m>[m PAC[31m.[mpopulus_meanIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m<=[m PAC[31m.[mpopulus_eccentricity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m>[m PAC[31m.[mpopulus_eccentricity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m():[m
+                    recognition[31m[[m[35m7[m[31m][m [31m=[m [35m0[m  [31m# not populus[m
+                    unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+                    [31m# print('', json_name, 'does not pass additional filter', end="", flush=True)[m
+                [31m# elif ratio1 < 10 or ratio2 < 5:[m
+                [31m#     # print(json_name, 'does not pass fluorescence check')[m
+                [31m#     recognition[10] = 0  # not populus[m
+                [31m#     unrecognised = unrecognised + 1[m
+
+            [01;34mif[m recognition[31m[[m[35m18[m[31m][m [31m==[m [35m1[m[31m:[m  [31m# quercus[m
+                [01;34mif[m [31m([msol [31m<=[m sol_min[31m*[mPAC[31m.[mquercus_sol_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([msol [31m>[m sol_max[31m*[mPAC[31m.[mquercus_sol_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m<=[m PAC[31m.[mquercus_area_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m>[m PAC[31m.[mquercus_area_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m<=[m PAC[31m.[mquercus_minorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m>[m PAC[31m.[mquercus_minorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m<=[m PAC[31m.[mquercus_majorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m>[m PAC[31m.[mquercus_majorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m<=[m PAC[31m.[mquercus_perimeter_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m>[m PAC[31m.[mquercus_perimeter_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m<=[m PAC[31m.[mquercus_maxIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m>[m PAC[31m.[mquercus_maxIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mquercus_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mquercus_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mquercus_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mquercus_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m<=[m PAC[31m.[mquercus_meanIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m>[m PAC[31m.[mquercus_meanIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m<=[m PAC[31m.[mquercus_eccentricity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m>[m PAC[31m.[mquercus_eccentricity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m():[m
+                    recognition[31m[[m[35m8[m[31m][m [31m=[m [35m0[m  [31m# not quercus[m
+                    unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+                    [31m# print('', json_name, 'does not pass additional filter', end="", flush=True)[m
+
+            [01;34mif[m recognition[31m[[m[35m16[m[31m][m [31m==[m [35m1[m[31m:[m  [31m# salix[m
+                [31m# ratio1 = json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][2] / \[m
+                [31m#          json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][5][m
+                [31m# ratio2 = json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][3] / \[m
+                [31m#          json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][5][m
+                [31m# ratio3 = json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][4] / \[m
+                [31m#          json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][5][m
+                [01;34mif[m [31m([msol [31m<=[m sol_min[31m*[mPAC[31m.[msalix_sol_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([msol [31m>[m sol_max[31m*[mPAC[31m.[msalix_sol_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m<=[m PAC[31m.[msalix_area_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m>[m PAC[31m.[msalix_area_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m<=[m PAC[31m.[msalix_minorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m>[m PAC[31m.[msalix_minorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m<=[m PAC[31m.[msalix_majorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m>[m PAC[31m.[msalix_majorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m<=[m PAC[31m.[msalix_perimeter_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m>[m PAC[31m.[msalix_perimeter_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m<=[m PAC[31m.[msalix_maxIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m>[m PAC[31m.[msalix_maxIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[msalix_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[msalix_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[msalix_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[msalix_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m<=[m PAC[31m.[msalix_meanIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m>[m PAC[31m.[msalix_meanIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m<=[m PAC[31m.[msalix_eccentricity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m>[m PAC[31m.[msalix_eccentricity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m():[m
+                    recognition[31m[[m[35m9[m[31m][m [31m=[m [35m0[m  [31m# not salix[m
+                    unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+                    [31m# print('', json_name, 'does not pass additional filter', end="", flush=True)[m
+
+    [31m###############################################################[m
+
+                recognition[31m[[m[35m9[m[31m][m [31m=[m [35m0[m  [31m### TO BE FIXED[m
+                unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+
+    [31m###############################################################[m
+
+            [01;34mif[m recognition[31m[[m[35m21[m[31m][m [31m==[m [35m1[m[31m:[m  [31m# mist[m
+                [01;34mif[m [31m([msol [31m<=[m sol_min[31m*[mPAC[31m.[mmist_sol_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([msol [31m>[m sol_max[31m*[mPAC[31m.[mmist_sol_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m<=[m PAC[31m.[mmist_area_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([marea [31m>[m PAC[31m.[mmist_area_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m<=[m PAC[31m.[mmist_minorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminorAxis [31m>[m PAC[31m.[mmist_minorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m<=[m PAC[31m.[mmist_majorAxis_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmajorAxis [31m>[m PAC[31m.[mmist_majorAxis_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m<=[m PAC[31m.[mmist_perimeter_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mperimeter [31m>[m PAC[31m.[mmist_perimeter_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m<=[m PAC[31m.[mmist_maxIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmaxIntensity [31m>[m PAC[31m.[mmist_maxIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mmist_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mmist_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m<=[m PAC[31m.[mmist_minIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mminIntensity [31m>[m PAC[31m.[mmist_minIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m<=[m PAC[31m.[mmist_meanIntensity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([mmeanIntensity [31m>[m PAC[31m.[mmist_meanIntensity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m<=[m PAC[31m.[mmist_eccentricity_range[31m[[m[35m0[m[31m]).[m[01;30many[m[31m()[m [01;34mor[m [31m([meccentricity [31m>[m PAC[31m.[mmist_eccentricity_range[31m[[m[35m1[m[31m]).[m[01;30many[m[31m():[m
+                    recognition[31m[[m[35m10[m[31m][m [31m=[m [35m0[m  [31m# not mist[m
+                    unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+                    [31m# print('', json_name, 'does not pass additional filter', end="", flush=True)[m
+        [01;34mexcept[m[31m:[m
+            recognition [31m=[m np[31m.[m[01;30mzeros[m[31m([m[35m21[m[31m)[m
+            recognition [31m=[m np[31m.[m[01;30mint8[m[31m([mrecognition[31m)[m
+            unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+
+        size [31m=[m np[31m.[m[01;30maround[m[31m([mnp[31m.[m[01;30mmean[m[31m([mmajorAxis[31m)/[m[35m17[m[31m*[m[35m8[m[31m,[m decimals[31m=[m[35m2[m[31m)[m
+        [31m# print('; Mean MinAxis:', size, 'um', end="", flush=True)[m
+
+        [31m# print()[m
+
+        [31m# print(recognition)[m
+
+        event_multiplier [31m=[m json_data[31m[[m[31m'event_multiplier'[m[31m][m
+        recognition [31m=[m recognition[31m*[mevent_multiplier
+
+        classes [31m=[m classes [31m+[m recognition
+        [01;34mif[m [01;30mall[m[31m([mr [31m<[m threshold [01;34mfor[m r [01;34min[m result[31m):[m
+            unrecognised [31m=[m unrecognised [31m+[m [35m1[m
+
+        [01;34mfor[m j [01;34min[m [01;30mrange[m[31m([m[35m0[m[31m,[m[35m15[m[31m):[m
+            [01;34mif[m size [31m>=[m bins[31m[[mj[31m][m [01;34mand[m size [31m<[m bins[31m[[mj[31m+[m[35m1[m[31m]:[m
+                curent_event_size_classes[31m[[mj[31m][m [31m=[m [35m1[m[31m*[mevent_multiplier
+
+        size_classes [31m=[m size_classes [31m+[m curent_event_size_classes
+
+[01;34mprint[m[31m([m[31m'Recognition results:'[m[31m,[m classes[31m)[m
+
+headers [31m=[m [31m[[m     [31m'Year'[m[31m,[m
+                [31m'Month'[m[31m,[m
+                [31m'Day'[m[31m,[m
+                [31m'Hour'[m[31m,[m
+                [31m"Alnus"[m[31m,[m
+    			[31m"Artemisia"[m[31m,[m
+			    [31m"Betula"[m[31m,[m
+			    [31m"Carpinus"[m[31m,[m
+			    [31m"Corylus"[m[31m,[m
+			    [31m"Cupressus"[m[31m,[m
+			    [31m"Dactylis"[m[31m,[m
+			    [31m"Fraxinus"[m[31m,[m
+			    [31m"Morus"[m[31m,[m
+			    [31m"Olea"[m[31m,[m
+			    [31m"Picea"[m[31m,[m
+			    [31m"Pinus"[m[31m,[m
+			    [31m"Plantago"[m[31m,[m
+			    [31m"Platanus"[m[31m,[m
+			    [31m"Populus"[m[31m,[m
+			    [31m"Rumex"[m[31m,[m
+			    [31m"Salix"[m[31m,[m
+			    [31m"Taxus"[m[31m,[m
+			    [31m"Quercus"[m[31m,[m
+			    [31m"Ulmus"[m[31m,[m
+			    [31m"Urtica"[m[31m,[m
+                [31m"Mist"[m[31m#,[m
+                [31m# 'Unrecognised',[m
+                [31m# 'Valid',[m
+                [31m# 'Total'[m
+                [31m# 'json_fail',[m
+                [31m# 'imgProp_fail'[m
+                [31m][m
+
+to_csv_hours [31m=[m np[31m.[m[01;30marray[m[31m([[m[31m'YYYY'[m[31m,[m[31m'MM'[m[31m,[m[31m'DD'[m[31m,[m[31m'HH'[m[31m])[m
+to_csv_data [31m=[m np[31m.[m[01;30mzeros[m[31m([m[35m21[m[31m)[m
+concentrator_coeff [31m=[m [35m1.7[m
+grains_to_m3 [31m=[m [35m1[m[31m/[m[35m2.4[m
+
+[31m### UTC to local Helsinki time, remove if not needed[m
+
+helsinki_timezone [31m=[m pytz[31m.[m[01;30mtimezone[m[31m([m[31m'Europe/Helsinki'[m[31m)[m
+utc_timezone [31m=[m pytz[31m.[m[01;30mtimezone[m[31m([m[31m'UTC'[m[31m)[m
+utc_time [31m=[m datetime[31m.[m[01;30mstrptime[m[31m([mos[31m.[mpath[31m.[m[01;30mbasename[m[31m([mzip_date[31m)[[m[35m0[m[31m:[m[35m13[m[31m],[m [31m'%Y-%m-%d_%H'[m[31m)[m
+helsinki_time [31m=[m utc_time[31m.[m[01;30mastimezone[m[31m([mhelsinki_timezone[31m)[m
+to_csv_hours[31m[[m[35m0[m[31m][m [31m=[m helsinki_time[31m.[m[01;30mstrftime[m[31m([m[31m"%Y"[m[31m)[m
+to_csv_hours[31m[[m[35m1[m[31m][m [31m=[m helsinki_time[31m.[m[01;30mstrftime[m[31m([m[31m"%m"[m[31m)[m
+to_csv_hours[31m[[m[35m2[m[31m][m [31m=[m helsinki_time[31m.[m[01;30mstrftime[m[31m([m[31m"%d"[m[31m)[m
+to_csv_hours[31m[[m[35m3[m[31m][m [31m=[m helsinki_time[31m.[m[01;30mstrftime[m[31m([m[31m"%H"[m[31m)[m
+
+classes [31m=[m classes[31m.[m[01;30mastype[m[31m([mfloat[31m)[m
+classes [31m=[m classes[31m*[mgrains_to_m3[31m*[mconcentrator_coeff
+classes [31m=[m classes[31m.[m[01;30mround[m[31m([mdecimals[31m=[m[35m2[m[31m)[m
+[31m#to_csv_data[0:11] = classes[0:11][m
+
+[31m# CM corrections and SFs; placeholder[m
+[31m#tmp = 2 * classes[0] - 8 * classes[2][m
+[31m#to_csv_data[0] = np.maximum(tmp, 0)[m
+[31m#to_csv_data[1] = classes[1] / 10[m
+[31m#tmp = 8 * classes[2] - 2 * classes[0][m
+[31m#to_csv_data[2] = np.maximum(tmp, 0)[m
+[31m#tmp = 2 * classes[3] - 8 * classes[2][m
+[31m#to_csv_data[3] = np.maximum(tmp, 0)[m
+[31m#to_csv_data[4] = classes[4] * 2[m
+[31m#to_csv_data[5] = classes[5] * 2[m
+[31m#to_csv_data[6] = classes[6] * 4[m
+[31m#to_csv_data[7] = classes[7] / 10[m
+[31m#to_csv_data[8] = classes[8] * 2[m
+[31m#to_csv_data[9] = classes[9] / 10[m
+[31m#to_csv_data[10] = classes[10] * 2[m
+[31m#to_csv_data = np.round(to_csv_data, 2)[m
+
+[31m# unrecognised = unrecognised.astype(float)[m
+[31m# unrecognised = unrecognised*grains_to_m3*concentrator_coeff[m
+[31m# unrecognised = unrecognised.round(decimals=2)[m
+[31m# to_csv_data[11] = unrecognised[0][m
+[31m# totals = df_stats['total_cnt']*grains_to_m3*concentrator_coeff[m
+[31m# totals = totals.round(decimals=2)[m
+[31m# to_csv_data[12] = totals[m
+pd_hours [31m=[m pd[31m.[m[01;30mDataFrame[m[31m({[m[31m'hours'[m[31m:[mto_csv_hours[31m})[m
+pd_data [31m=[m pd[31m.[m[01;30mDataFrame[m[31m({[m[31m'data'[m[31m:[mto_csv_data[31m})[m
+pd_to_csv [31m=[m pd[31m.[m[01;30mconcat[m[31m([[mpd_hours[31m.[mhours[31m,[m pd_data[31m.[mdata[31m],[m axis[31m=[m[35m0[m[31m)[m
+pd_to_csv [31m=[m pd[31m.[m[01;30mDataFrame[m[31m([mpd_to_csv[31m).[mT
+
+rcg_log [31m=[m sys[31m.[margv[31m[[m[35m2[m[31m][m [31m+[m [31m'/'[m [31m+[m os[31m.[mpath[31m.[m[01;30mbasename[m[31m([mzip_date[31m)[[m[35m0[m[31m:[m[35m13[m[31m][m [31m+[m [31m'_pollen.csv'[m
+[01;34mif[m os[31m.[mpath[31m.[m[01;30misfile[m[31m([mrcg_log[31m):[m
+    local_time [31m=[m time[31m.[m[01;30mlocaltime[m[31m()[m
+    current_time [31m=[m time[31m.[m[01;30mstrftime[m[31m([m[31m"%d_%b_%Y_%H_%M_%S"[m[31m,[m local_time[31m)[m
+    rcg_csv_legacy [31m=[m sys[31m.[margv[31m[[m[35m2[m[31m][m [31m+[m [31m'/Legacy/'[m [31m+[m os[31m.[mpath[31m.[m[01;30mbasename[m[31m([mzip_date[31m)[[m[35m0[m[31m:[m[35m13[m[31m][m [31m+[m [31m'_'[m [31m+[m current_time [31m+[m [31m'_pollen.csv'[m
+    os[31m.[m[01;30mrename[m[31m([mrcg_log[31m,[m  rcg_csv_legacy[31m)[m
+
+with [01;30mopen[m[31m([mrcg_log[31m,[m [31m'w'[m[31m,[m newline[31m=[m[31m''[m[31m)[m as create_csv[31m:[m
+    [31m# csv_creator = csv.writer(create_csv)[m
+    pd_to_csv[31m.[m[01;30mto_csv[m[31m([mrcg_log[31m,[m mode[31m=[m[31m'a'[m[31m,[m index[31m=[mFalse[31m,[m header[31m=[mFalse[31m)[m
+
+elapsed [31m=[m time[31m.[m[01;30mtime[m[31m()[m [31m-[m t
+[01;34mprint[m[31m([m[31m'Elapsed time:'[m[31m,[m [31m'{0:.1f}'[m[31m.[m[01;30mformat[m[31m([melapsed[31m),[m [31m'seconds'[m[31m)[m

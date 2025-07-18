@@ -1,12 +1,12 @@
 #!/bin/sh
 
-site=Cordoba
+site=Helsinki
 # Raw data zips directory zips to process
-export Poleno_hourly_zips=/home/sda/PolenoZips${site}/
+export Poleno_hourly_zips=/home/sda/PolenoZips${site}/2024/06/
 # Scripts directory
-export Poleno_scripts=$HOME/local_Poleno_recognition/FMI_Poleno_Operational
+export Poleno_scripts=$HOME/local_Poleno_recognition/FMI_Poleno_2025
 # Outputs
-export Poleno_output=$HOME/local_Poleno_recognition/${site}_Poleno_Results
+export Poleno_output=$HOME/local_Poleno_recognition/${site}_Poleno_Results_2025
 # Logs
 export Log_dir=$Poleno_output/Logs
 # Time series output file

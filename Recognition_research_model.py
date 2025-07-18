@@ -81,7 +81,7 @@ zip_date = sys.argv[3]
 json_names = [s for s in os.listdir(sys.argv[1]) if 'ev.json' in s]
 
 threshold = 0.70                # if set below 0.5 the event might get counted 2+ times
-classes = np.zeros(11)          # adjust for number of classes
+classes = np.zeros(22)          # adjust for number of classes
 size_classes = np.zeros(15)     # adjust for number of classes
 unrecognised = np.zeros(1)      # number of unrecognised events
 
@@ -96,8 +96,7 @@ df_stats = pd.DataFrame(
 df_stats.iloc[0] = np.zeros(len(df_stats.columns))
 
 # print('Loading model')
-# model_name = sys.argv[2] + '/../' + 'Poleno_2021_10_plus_mist_Classes_Model_v2.h5'
-model_name = 'Poleno_2021_10_plus_mist_Classes_Model_v2.h5'
+model_name = 'model_2025_v0_3.h5'
 model = load_model(model_name)
 print('Processing measurements')
  
@@ -230,13 +229,13 @@ for i in range(len(json_names)):
                     unrecognised = unrecognised + 1
                     # print('', json_name, 'does not pass additional filter', end="", flush=True)
 
-            if recognition[3] == 1:  # corylus
+            if recognition[4] == 1:  # corylus
                 if (sol <= sol_min*PAC.corylus_sol_range[0]).any() or (sol > sol_max*PAC.corylus_sol_range[1]).any() or (area <= PAC.corylus_area_range[0]).any() or (area > PAC.corylus_area_range[1]).any() or (minorAxis <= PAC.corylus_minorAxis_range[0]).any() or (minorAxis > PAC.corylus_minorAxis_range[1]).any() or (majorAxis <= PAC.corylus_majorAxis_range[0]).any() or (majorAxis > PAC.corylus_majorAxis_range[1]).any() or (perimeter <= PAC.corylus_perimeter_range[0]).any() or (perimeter > PAC.corylus_perimeter_range[1]).any() or (maxIntensity <= PAC.corylus_maxIntensity_range[0]).any() or (maxIntensity > PAC.corylus_maxIntensity_range[1]).any() or (minIntensity <= PAC.corylus_minIntensity_range[0]).any() or (minIntensity > PAC.corylus_minIntensity_range[1]).any() or (minIntensity <= PAC.corylus_minIntensity_range[0]).any() or (minIntensity > PAC.corylus_minIntensity_range[1]).any() or (meanIntensity <= PAC.corylus_meanIntensity_range[0]).any() or (meanIntensity > PAC.corylus_meanIntensity_range[1]).any() or (eccentricity <= PAC.corylus_eccentricity_range[0]).any() or (eccentricity > PAC.corylus_eccentricity_range[1]).any():
                     recognition[3] = 0  # not corylus
                     unrecognised = unrecognised + 1
                     # print('', json_name, 'does not pass additional filter', end="", flush=True)
 
-            if recognition[4] == 1:  # fraxinus
+            if recognition[7] == 1:  # fraxinus
                 if (sol <= sol_min*PAC.fraxinus_sol_range[0]).any() or (sol > sol_max*PAC.fraxinus_sol_range[1]).any() or (area <= PAC.fraxinus_area_range[0]).any() or (area > PAC.fraxinus_area_range[1]).any() or (minorAxis <= PAC.fraxinus_minorAxis_range[0]).any() or (minorAxis > PAC.fraxinus_minorAxis_range[1]).any() or (majorAxis <= PAC.fraxinus_majorAxis_range[0]).any() or (majorAxis > PAC.fraxinus_majorAxis_range[1]).any() or (perimeter <= PAC.fraxinus_perimeter_range[0]).any() or (perimeter > PAC.fraxinus_perimeter_range[1]).any() or (maxIntensity <= PAC.fraxinus_maxIntensity_range[0]).any() or (maxIntensity > PAC.fraxinus_maxIntensity_range[1]).any() or (minIntensity <= PAC.fraxinus_minIntensity_range[0]).any() or (minIntensity > PAC.fraxinus_minIntensity_range[1]).any() or (minIntensity <= PAC.fraxinus_minIntensity_range[0]).any() or (minIntensity > PAC.fraxinus_minIntensity_range[1]).any() or (meanIntensity <= PAC.fraxinus_meanIntensity_range[0]).any() or (meanIntensity > PAC.fraxinus_meanIntensity_range[1]).any() or (eccentricity <= PAC.fraxinus_eccentricity_range[0]).any() or (eccentricity > PAC.fraxinus_eccentricity_range[1]).any():
                     recognition[4] = 0  # not fraxinus
                     unrecognised = unrecognised + 1
@@ -245,13 +244,13 @@ for i in range(len(json_names)):
             # if recognition[5] == 1:  # picea
                 ### TO ADD ###
 
-            if recognition[6] == 1:  # pinus
+            if recognition[11] == 1:  # pinus
                 if (sol <= sol_min*PAC.pinus_sol_range[0]).any() or (sol > sol_max*PAC.pinus_sol_range[1]).any() or (area <= PAC.pinus_area_range[0]).any() or (area > PAC.pinus_area_range[1]).any() or (minorAxis <= PAC.pinus_minorAxis_range[0]).any() or (minorAxis > PAC.pinus_minorAxis_range[1]).any() or (majorAxis <= PAC.pinus_majorAxis_range[0]).any() or (majorAxis > PAC.pinus_majorAxis_range[1]).any() or (perimeter <= PAC.pinus_perimeter_range[0]).any() or (perimeter > PAC.pinus_perimeter_range[1]).any() or (maxIntensity <= PAC.pinus_maxIntensity_range[0]).any() or (maxIntensity > PAC.pinus_maxIntensity_range[1]).any() or (minIntensity <= PAC.pinus_minIntensity_range[0]).any() or (minIntensity > PAC.pinus_minIntensity_range[1]).any() or (minIntensity <= PAC.pinus_minIntensity_range[0]).any() or (minIntensity > PAC.pinus_minIntensity_range[1]).any() or (meanIntensity <= PAC.pinus_meanIntensity_range[0]).any() or (meanIntensity > PAC.pinus_meanIntensity_range[1]).any() or (eccentricity <= PAC.pinus_eccentricity_range[0]).any() or (eccentricity > PAC.pinus_eccentricity_range[1]).any():
                     recognition[6] = 0  # not pinus
                     unrecognised = unrecognised + 1
                     # print('', json_name, 'does not pass additional filter', end="", flush=True)
 
-            if recognition[7] == 1:  # populus
+            if recognition[14] == 1:  # populus
                 # ratio1 = json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][2] / \
                 #          json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][5]
                 # ratio2 = json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][3] / \
@@ -265,13 +264,13 @@ for i in range(len(json_names)):
                 #     recognition[10] = 0  # not populus
                 #     unrecognised = unrecognised + 1
 
-            if recognition[8] == 1:  # quercus
+            if recognition[18] == 1:  # quercus
                 if (sol <= sol_min*PAC.quercus_sol_range[0]).any() or (sol > sol_max*PAC.quercus_sol_range[1]).any() or (area <= PAC.quercus_area_range[0]).any() or (area > PAC.quercus_area_range[1]).any() or (minorAxis <= PAC.quercus_minorAxis_range[0]).any() or (minorAxis > PAC.quercus_minorAxis_range[1]).any() or (majorAxis <= PAC.quercus_majorAxis_range[0]).any() or (majorAxis > PAC.quercus_majorAxis_range[1]).any() or (perimeter <= PAC.quercus_perimeter_range[0]).any() or (perimeter > PAC.quercus_perimeter_range[1]).any() or (maxIntensity <= PAC.quercus_maxIntensity_range[0]).any() or (maxIntensity > PAC.quercus_maxIntensity_range[1]).any() or (minIntensity <= PAC.quercus_minIntensity_range[0]).any() or (minIntensity > PAC.quercus_minIntensity_range[1]).any() or (minIntensity <= PAC.quercus_minIntensity_range[0]).any() or (minIntensity > PAC.quercus_minIntensity_range[1]).any() or (meanIntensity <= PAC.quercus_meanIntensity_range[0]).any() or (meanIntensity > PAC.quercus_meanIntensity_range[1]).any() or (eccentricity <= PAC.quercus_eccentricity_range[0]).any() or (eccentricity > PAC.quercus_eccentricity_range[1]).any():
                     recognition[8] = 0  # not quercus
                     unrecognised = unrecognised + 1
                     # print('', json_name, 'does not pass additional filter', end="", flush=True)
 
-            if recognition[9] == 1:  # salix
+            if recognition[16] == 1:  # salix
                 # ratio1 = json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][2] / \
                 #          json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][5]
                 # ratio2 = json_data['rawData']['sipmData']['4']['corrChannels']['corrMag'][3] / \
@@ -290,13 +289,13 @@ for i in range(len(json_names)):
 
     ###############################################################
 
-            if recognition[10] == 1:  # mist
+            if recognition[21] == 1:  # mist
                 if (sol <= sol_min*PAC.mist_sol_range[0]).any() or (sol > sol_max*PAC.mist_sol_range[1]).any() or (area <= PAC.mist_area_range[0]).any() or (area > PAC.mist_area_range[1]).any() or (minorAxis <= PAC.mist_minorAxis_range[0]).any() or (minorAxis > PAC.mist_minorAxis_range[1]).any() or (majorAxis <= PAC.mist_majorAxis_range[0]).any() or (majorAxis > PAC.mist_majorAxis_range[1]).any() or (perimeter <= PAC.mist_perimeter_range[0]).any() or (perimeter > PAC.mist_perimeter_range[1]).any() or (maxIntensity <= PAC.mist_maxIntensity_range[0]).any() or (maxIntensity > PAC.mist_maxIntensity_range[1]).any() or (minIntensity <= PAC.mist_minIntensity_range[0]).any() or (minIntensity > PAC.mist_minIntensity_range[1]).any() or (minIntensity <= PAC.mist_minIntensity_range[0]).any() or (minIntensity > PAC.mist_minIntensity_range[1]).any() or (meanIntensity <= PAC.mist_meanIntensity_range[0]).any() or (meanIntensity > PAC.mist_meanIntensity_range[1]).any() or (eccentricity <= PAC.mist_eccentricity_range[0]).any() or (eccentricity > PAC.mist_eccentricity_range[1]).any():
                     recognition[10] = 0  # not mist
                     unrecognised = unrecognised + 1
                     # print('', json_name, 'does not pass additional filter', end="", flush=True)
         except:
-            recognition = np.zeros(11)
+            recognition = np.zeros(21)
             recognition = np.int8(recognition)
             unrecognised = unrecognised + 1
 
@@ -327,15 +326,26 @@ headers = [     'Year',
                 'Day',
                 'Hour',
                 "Alnus",
-                "Artemisia",
-                "Betula",
-                "Corylus",
-                "Fraxinus",
-                "Picea",
-                "Pinus",
-                "Populus",
-                "Quercus",
-                "Salix",
+    			"Artemisia",
+			    "Betula",
+			    "Carpinus",
+			    "Corylus",
+			    "Cupressus",
+			    "Dactylis",
+			    "Fraxinus",
+			    "Morus",
+			    "Olea",
+			    "Picea",
+			    "Pinus",
+			    "Plantago",
+			    "Platanus",
+			    "Populus",
+			    "Rumex",
+			    "Salix",
+			    "Taxus",
+			    "Quercus",
+			    "Ulmus",
+			    "Urtica",
                 "Mist"#,
                 # 'Unrecognised',
                 # 'Valid',
@@ -345,11 +355,11 @@ headers = [     'Year',
                 ]
 
 to_csv_hours = np.array(['YYYY','MM','DD','HH'])
-to_csv_data = np.zeros(11)
+to_csv_data = np.zeros(22)
 concentrator_coeff = 1.7
 grains_to_m3 = 1/2.4
 
-### UTC to local Helsinki time
+### UTC to local Helsinki time, remove if not needed
 
 helsinki_timezone = pytz.timezone('Europe/Helsinki')
 utc_timezone = pytz.timezone('UTC')
@@ -366,21 +376,21 @@ classes = classes.round(decimals=2)
 #to_csv_data[0:11] = classes[0:11]
 
 # CM corrections and SFs; placeholder
-tmp = 2 * classes[0] - 8 * classes[2]
-to_csv_data[0] = np.maximum(tmp, 0)
-to_csv_data[1] = classes[1] / 10
-tmp = 8 * classes[2] - 2 * classes[0]
-to_csv_data[2] = np.maximum(tmp, 0)
-tmp = 2 * classes[3] - 8 * classes[2]
-to_csv_data[3] = np.maximum(tmp, 0)
-to_csv_data[4] = classes[4] * 2
-to_csv_data[5] = classes[5] * 2
-to_csv_data[6] = classes[6] * 4
-to_csv_data[7] = classes[7] / 10
-to_csv_data[8] = classes[8] * 2
-to_csv_data[9] = classes[9] / 10
-to_csv_data[10] = classes[10] * 2
-to_csv_data = np.round(to_csv_data, 2)
+#tmp = 2 * classes[0] - 8 * classes[2]
+#to_csv_data[0] = np.maximum(tmp, 0)
+#to_csv_data[1] = classes[1] / 10
+#tmp = 8 * classes[2] - 2 * classes[0]
+#to_csv_data[2] = np.maximum(tmp, 0)
+#tmp = 2 * classes[3] - 8 * classes[2]
+#to_csv_data[3] = np.maximum(tmp, 0)
+#to_csv_data[4] = classes[4] * 2
+#to_csv_data[5] = classes[5] * 2
+#to_csv_data[6] = classes[6] * 4
+#to_csv_data[7] = classes[7] / 10
+#to_csv_data[8] = classes[8] * 2
+#to_csv_data[9] = classes[9] / 10
+#to_csv_data[10] = classes[10] * 2
+#to_csv_data = np.round(to_csv_data, 2)
 
 # unrecognised = unrecognised.astype(float)
 # unrecognised = unrecognised*grains_to_m3*concentrator_coeff

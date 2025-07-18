@@ -1,13 +1,9 @@
-Scripts for Running FMI's Operational Recognition Algorithm on Poleno Raw Data Zip Archives
+Scripts for Running FMI's Research Classifier on Poleno Raw Data Zip Archives
 
 	environment -- file to set paths and locations
-
-	Recognition_*.py -- python3.7 scripts processing one hour of Poleno measurements
-
-	Poleno_2021_10_plus_mist_Classes_Model_v2.h5 -- current operational model
-
-	Recognition_Oper_Processing.sh -- bash script for handling raw data zip recognition
-
+	Recognition_research_model.py -- python3.7 script processing one hour of Poleno measurements
+	model_2025_v0_3.h5 -- current operational model
+	Recognition_Processing.sh -- bash script for handling raw data zip classification
 	Recognition_Processing_Submitter.sh -- bash script for parallel processing submission
 
 The algorithm uses NN model assembled with TensorFlow v1.15 requiring Python v3.7 and older
@@ -28,6 +24,10 @@ Virtual environment
 Dependencies:
 
 	pip install keras==2.1.6 tensorflow-cpu==1.15.0 h5py==2.10.0 protobuf==3.20 image python-dateutil pandas numpy
+
+Current performance on a hand-made evaluation dataset from environmental measurements:
+	
+	https://docs.google.com/spreadsheets/d/1NFu-M8LuTrupV4nMQT94vvzhGoHipcLYrzuF_fTjalw/edit?usp=sharing
 
 Questions? Contact: Evgeny Kadantsev <evgeny.kadantsev@fmi.fi>
 

@@ -42,7 +42,7 @@ else
 
 	SECONDS=0
 	EXIT_CODE='none'
-	python3.7 $Poleno_scripts/Recognition_11_classes_operational.py $Temp_folder $Poleno_output $Zip_date >> $Log_file || EXIT_CODE=$?
+	python3.7 $Poleno_scripts/Recognition_research_model.py $Temp_folder $Poleno_output $Zip_date >> $Log_file || EXIT_CODE=$?
 	echo 'Errors: ' $EXIT_CODE >> $Log_file
 	echo 'Time elapsed for' $Zip_to_process 'processing:' $SECONDS 'seconds' >> $Log_file
 
@@ -52,6 +52,6 @@ else
 	echo 'Time elapsed for cleaning:' $SECONDS 'seconds' >> $Log_file
 
 	cat $Poleno_output/*pollen.csv > $Poleno_output/../$Recognition_Results_file
-	sed -i '1 i\Year,Month,Day,Hour,Alnus,Artemisia,Betula,Corylus,Fraxinus,Picea,Pinus,Populus,Quercus,Salix,Mist' $Poleno_output/../$Recognition_Results_file
+	sed -i '1 i\Year,Month,Day,Hour,Alnus,Artemisia,Betula,Carpinus,Corylus,Cupressus,Dactylis,Fraxinus,Morus,Olea,Picea,Pinus,Plantago,Platanus,Populus,Rumex,Salix,Taxus,Quercus,Ulmus,Urtica,Mist' $Poleno_output/../$Recognition_Results_file
 
 fi
