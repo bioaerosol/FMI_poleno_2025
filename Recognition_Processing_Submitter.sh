@@ -7,7 +7,7 @@ source ./environment
 
 echo 'Processing zips'
 
-printf '%s\0' $Poleno_hourly_zips/2024-06-15_*h.zip | xargs -0 -P 4 -n 1 bash \
+printf '%s\0' $Poleno_hourly_zips/ZIPS_TO_PROCESS*.zip | xargs -0 -P 4 -n 1 bash \
  	$Poleno_scripts/Recognition_Processing.sh
 
 # find $Poleno_hourly_zips/*.zip -mtime -25 -printf '%p\0' \
